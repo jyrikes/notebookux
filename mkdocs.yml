@@ -1,0 +1,39 @@
+site_name: notebookux
+site_description: Componentes visuais para notebooks academicos e tecnicos.
+site_url: https://jyrikes.github.io/notebookux/
+repo_url: https://github.com/jyrikes/notebookux
+repo_name: jyrikes/notebookux
+
+theme:
+  name: material
+  language: pt-BR
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Inicio: index.md
+  - Guia rapido: quickstart.md
+  - Componentes: components.md
+  - Exemplos: examples.md
+  - API: api.md
+  - Release: release.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            show_root_heading: true
+            show_source: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
