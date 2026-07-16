@@ -1,6 +1,7 @@
 import math
 from collections.abc import Mapping, Sequence
 from html import escape
+from io import StringIO
 from itertools import count
 from typing import Any
 
@@ -60,6 +61,7 @@ def render_circuit_output(
     stage: str = "circuito",
     explanation: str = "",
     steps: Sequence[str] | None = None,
+    figure: Any | None = None,
 ) -> None:
     """Summarize an already-built circuit without importing or executing Qiskit."""
     output_id = f"quantum-circuit-{next(_OUTPUT_IDS)}"
@@ -79,10 +81,12 @@ def render_circuit_output(
         for index, copy in enumerate(reading_steps, 1)
     )
     operation_html = "".join(f'<span><b>{escape(name)}</b> × {amount}</span>' for name, amount in operations)
+    circuit_visual = _figure_svg(figure) if figure is not None else ""
     body = f"""
     <section id="{output_id}" class="qo-root qo-circuit">
       <header><div><small>Como ler o desenho acima</small><h3>{escape(title)}</h3></div><span>{escape(stage)}</span></header>
       {f'<p class="qo-context">{escape(explanation)}</p>' if explanation else ''}
+      {f'<div class="qo-circuit-visual">{circuit_visual}</div>' if circuit_visual else ''}
       <div class="qo-metrics">
         <article><small>qubits</small><b>{num_qubits}</b></article>
         <article><small>bits clássicos</small><b>{num_clbits}</b></article>
@@ -113,7 +117,7 @@ def render_statevector_output(
     num_qubits = int(getattr(statevector, "num_qubits", round(math.log2(len(statevector)))))
     dominant, probability = nonzero[0]
     bars = "".join(
-        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="width:{value * 100:.4f}%"></b></i><strong>{value:.2%}</strong></div>'
+        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="height:{value * 100:.4f}%"></b></i><strong>{value:.2%}</strong></div>'
         for key, value in nonzero[:8]
     )
     body = f"""
@@ -165,7 +169,7 @@ def _expected_copy(expected: str | None, dominant: str, counts: Mapping[str, int
 def _count_bars(ordered: Sequence[tuple[str, int]], total: int) -> str:
     maximum = max(value for _, value in ordered)
     return "".join(
-        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="width:{value / maximum * 100:.4f}%"></b></i><strong>{value / total:.1%}</strong></div>'
+        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="height:{value / maximum * 100:.4f}%"></b></i><strong>{value / total:.1%}</strong></div>'
         for key, value in ordered[:10]
     )
 
@@ -185,6 +189,19 @@ def _operations(circuit: Any) -> list[tuple[str, int]]:
     return sorted(((str(name), int(str(amount))) for name, amount in result.items()), key=lambda item: (-item[1], item[0]))
 
 
+def _figure_svg(figure: Any) -> str:
+    savefig = getattr(figure, "savefig", None)
+    if not callable(savefig):
+        raise TypeError("figure must provide a savefig method")
+    output = StringIO()
+    savefig(output, format="svg", bbox_inches="tight")
+    svg = output.getvalue()
+    start = svg.find("<svg")
+    if start < 0 or "<script" in svg.lower():
+        raise ValueError("figure did not produce a safe SVG")
+    return svg[start:]
+
+
 def _style(ux, output_id: str) -> str:
     t = ux.theme
     root = f"#{output_id}"
@@ -193,10 +210,11 @@ def _style(ux, output_id: str) -> str:
     {root}{{--p:{t['primary']};--a:{t['accent']};--s:{t['surface']};--s2:{t['surface_2']};--b:{t['border']};--tx:{t['text']};--m:{t['muted']};background:var(--s);border:1px solid var(--b);border-radius:12px;color:var(--tx);margin:12px 0;overflow:hidden;padding:clamp(17px,2.4vw,25px)}}
     {root} *{{box-sizing:border-box}} {root} header{{align-items:start;display:flex;gap:15px;justify-content:space-between}} {root} header small{{color:var(--p);font-size:11px;font-weight:950;letter-spacing:.12em;text-transform:uppercase}} {root} h3{{font-size:clamp(23px,2.5vw,30px);line-height:1.15;margin:5px 0 0}} {root} header>span{{background:var(--s2);border:1px solid var(--b);border-radius:999px;color:var(--a);font-size:12px;font-weight:900;padding:7px 10px}}
     {root} .qo-context{{color:var(--m);font-size:17px;line-height:1.6;margin:15px 0}} {root} .qo-metrics{{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));margin:18px 0}} {root} .qo-metrics article{{background:var(--s2);border:1px solid var(--b);border-radius:9px;display:grid;gap:5px;padding:13px}} {root} .qo-metrics small{{color:var(--m);font-size:11px;font-weight:900;text-transform:uppercase}} {root} .qo-metrics b{{font-size:23px;overflow-wrap:anywhere}}
-    {root} .qo-bars{{display:grid;gap:9px;margin:18px 0}} {root} .qo-bar{{align-items:center;display:grid;gap:10px;grid-template-columns:minmax(55px,.6fr) minmax(120px,4fr) minmax(60px,.6fr)}} {root} .qo-bar>span{{font-family:Georgia,serif;font-weight:900}} {root} .qo-bar>i{{background:var(--s2);border:1px solid var(--b);border-radius:999px;height:18px;overflow:hidden}} {root} .qo-bar>i>b{{background:linear-gradient(90deg,var(--p),var(--a));display:block;height:100%;min-width:2px}} {root} .qo-bar>strong{{font-variant-numeric:tabular-nums;text-align:right}}
+    {root} .qo-bars{{align-items:end;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(48px,1fr));margin:20px 0;min-height:238px}} {root} .qo-bar{{align-items:end;display:grid;gap:7px;grid-template-rows:24px 180px auto;justify-items:center;min-width:0}} {root} .qo-bar>span{{font-family:Georgia,serif;font-size:13px;font-weight:900;max-width:100%;order:3;overflow-wrap:anywhere;text-align:center}} {root} .qo-bar>i{{align-items:flex-end;background:var(--s2);border:1px solid var(--b);border-radius:8px 8px 3px 3px;display:flex;height:180px;overflow:hidden;width:min(44px,100%)}} {root} .qo-bar>i>b{{background:linear-gradient(0deg,var(--p),var(--a));display:block;min-height:2px;transition:height .3s;width:100%}} {root} .qo-bar>strong{{font-size:13px;font-variant-numeric:tabular-nums;order:1;text-align:center}}
     {root} .qo-steps,{root} .qo-reading{{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-top:19px}} {root} .qo-steps article,{root} .qo-reading article{{align-items:start;background:var(--s2);border:1px solid var(--b);border-radius:9px;display:grid;gap:11px;grid-template-columns:34px 1fr;padding:13px}} {root} .qo-steps article>b,{root} .qo-reading article>b{{align-items:center;background:var(--p);border-radius:50%;color:white;display:flex;font-size:11px;height:30px;justify-content:center}} {root} .qo-steps strong{{font-size:16px}} {root} .qo-steps p,{root} .qo-reading p{{color:var(--m);font-size:14px;line-height:1.5;margin:5px 0 0}}
     {root} .qo-note{{background:var(--s2);border-left:4px solid var(--a);border-radius:0 8px 8px 0;font-size:14px;line-height:1.5;margin-top:14px;padding:11px 13px}} {root} .qo-operations{{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}} {root} .qo-operations span{{background:var(--s2);border:1px solid var(--b);border-radius:999px;font-size:13px;padding:7px 10px}} {root} .qo-operations b{{color:var(--p)}}
-    @media(max-width:680px){{{root} header{{display:grid}} {root} header>span{{justify-self:start}} {root} .qo-steps,{root} .qo-reading{{grid-template-columns:1fr}} {root} .qo-bar{{grid-template-columns:52px 1fr 55px}}}}
+    {root} .qo-circuit-visual{{background:linear-gradient(145deg,color-mix(in srgb,var(--p) 12%,var(--s2)),var(--s2));border:1px solid var(--b);border-radius:11px;margin:18px 0;overflow:auto;padding:14px}} {root} .qo-circuit-visual svg{{background:white;border-radius:7px;display:block;height:auto;margin:auto;max-width:100%;min-width:520px}}
+    @media(max-width:680px){{{root} header{{display:grid}} {root} header>span{{justify-self:start}} {root} .qo-steps,{root} .qo-reading{{grid-template-columns:1fr}} {root} .qo-bars{{grid-template-columns:repeat(auto-fit,minmax(42px,1fr))}} {root} .qo-circuit-visual svg{{min-width:460px}}}}
     </style>
     """
 
