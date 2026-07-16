@@ -44,6 +44,21 @@ def test_guided_questions_and_portrait_fallbacks_are_present() -> None:
     assert "UC Berkeley EECS" in ux.html
 
 
+@pytest.mark.parametrize("lesson_id,kind", [
+    ("deutsch-algorithm", "deutsch"),
+    ("deutsch-jozsa-overview", "dj"),
+    ("bernstein-vazirani", "bv"),
+])
+def test_algorithm_lessons_have_step_circuit_and_probability_simulator(lesson_id: str, kind: str) -> None:
+    ux = CaptureUX()
+    render_algorithm_lesson(ux, lesson_id)
+    assert f'data-lx-circuit=\\"{kind}\\"' in ux.html
+    assert f'data-lx-simulator=\\"{kind}\\"' in ux.html
+    assert "data-lx-circuit-step" in ux.html
+    assert "data-lx-run-sim" in ux.html
+    assert "não substitui o modelo físico" in ux.html
+
+
 def test_unknown_lesson_lists_available_choices() -> None:
     with pytest.raises(ValueError, match="Available lessons"):
         render_algorithm_lesson(CaptureUX(), "unknown")

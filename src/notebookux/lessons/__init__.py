@@ -112,6 +112,100 @@ def _bv_lab() -> str:
     """
 
 
+def _circuit_lab(kind: str) -> str:
+    circuits = {
+        "deutsch": {
+            "wires": (("entrada", "|0⟩", ("H", "U<sub>f</sub>", "H", "M")),
+                      ("auxiliar", "|1⟩", ("H", "U<sub>f</sub>", "·", "·"))),
+            "notes": (
+                "Comece com o qubit de entrada em |0⟩ e o auxiliar em |1⟩.",
+                "H cria os ramos x=0 e x=1; no auxiliar, prepara (|0⟩−|1⟩)/√2.",
+                "U<sub>f</sub> é consultado uma vez e grava f(x) no sinal da amplitude.",
+                "A última H faz as fases interferirem: 0 significa constante e 1, balanceada.",
+            ),
+        },
+        "dj": {
+            "wires": (("registro x", "|0⟩<sup>⊗n</sup>", ("H<sup>⊗n</sup>", "U<sub>f</sub>", "H<sup>⊗n</sup>", "M<sup>⊗n</sup>")),
+                      ("auxiliar", "|1⟩", ("H", "U<sub>f</sub>", "·", "·"))),
+            "notes": (
+                "Use n qubits em |0⟩ e um auxiliar em |1⟩.",
+                "A primeira camada H cria uma superposição uniforme das 2ⁿ entradas.",
+                "Uma única chamada a U<sub>f</sub> associa a cada entrada a fase (−1)<sup>f(x)</sup>.",
+                "A segunda H soma as fases: 0…0 indica constante; qualquer 1 indica balanceada.",
+            ),
+        },
+        "bv": {
+            "wires": (("registro x", "|0⟩<sup>⊗n</sup>", ("H<sup>⊗n</sup>", "U<sub>f(s)</sub>", "H<sup>⊗n</sup>", "M<sup>⊗n</sup>")),
+                      ("auxiliar", "|1⟩", ("H", "U<sub>f(s)</sub>", "·", "·"))),
+            "notes": (
+                "Prepare n qubits de entrada em |0⟩ e o auxiliar em |1⟩.",
+                "H distribui a amplitude igualmente entre todas as entradas x.",
+                "U<sub>f(s)</sub> escreve a fase (−1)<sup>s·x</sup> sem revelar s diretamente.",
+                "A última H cancela todo estado diferente de s; a medida devolve a string secreta.",
+            ),
+        },
+    }
+    config = circuits[kind]
+    controls = "".join(
+        f'<button type="button" data-lx-circuit-step="{index}">{index + 1}. {label}</button>'
+        for index, label in enumerate(("Preparar", "Superpor", "Consultar", "Interferir e medir"))
+    )
+    wires = "".join(
+        '<div class="lx-wire">'
+        f'<span class="lx-wire-name"><b>{name}</b><small>{initial}</small></span>'
+        + "".join(
+            f'<span class="lx-node" data-lx-stage="{stage}"><b class="lx-gate">{gate}</b></span>'
+            for stage, gate in enumerate(gates, 1)
+        )
+        + '<span class="lx-wire-end">saída</span></div>'
+        for name, initial, gates in config["wires"]
+    )
+    notes = "".join(f'<span data-lx-circuit-copy="{i}">{note}</span>' for i, note in enumerate(config["notes"]))
+    return f"""
+    <section class="lx-circuit-lab" data-lx-circuit="{kind}">
+      <div class="lx-kicker">Monte o circuito passo a passo</div>
+      <div class="lx-circuit-controls">{controls}</div>
+      <div class="lx-circuit-board">{wires}</div>
+      <div class="lx-circuit-note" data-lx-circuit-note>{notes}</div>
+    </section>
+    """
+
+
+def _probability_lab(kind: str) -> str:
+    if kind == "deutsch":
+        options = '<div class="lx-sim-options"><span>Oráculo:</span>' + "".join(
+            f'<button type="button" data-lx-function="{outputs}">f{i}</button>'
+            for i, outputs in enumerate(("00", "01", "10", "11"), 1)
+        ) + "</div>"
+    elif kind == "dj":
+        options = """
+        <div class="lx-sim-options"><span>Promessa:</span>
+          <button type="button" data-lx-dj-case="constant">constante</button>
+          <button type="button" data-lx-dj-case="balanced">balanceada</button>
+        </div>
+        """
+    else:
+        options = '<div class="lx-sim-options"><span>Segredo s:</span><div class="lx-bits">' + "".join(
+            f'<button type="button" data-lx-bv-s="{i}">{v}</button>' for i, v in enumerate("1011")
+        ) + "</div></div>"
+    shots = "".join(f'<button type="button" data-lx-run-sim="{n}">{n} shots</button>' for n in (1, 32, 256, 1024))
+    return f"""
+    <section class="lx-simulator" data-lx-simulator="{kind}">
+      <div class="lx-kicker">Simulador probabilístico</div>
+      <p>Escolha o caso, a quantidade de shots e um ruído didático de leitura. O circuito ideal concentra 100% no resultado correto.</p>
+      {options}
+      <div class="lx-sim-controls">{shots}
+        <label>ruído <select data-lx-noise><option value="0">0%</option><option value="0.02">2%</option><option value="0.05">5%</option><option value="0.1">10%</option></select></label>
+      </div>
+      <div class="lx-prob-chart" aria-live="polite">
+        <div class="lx-prob-row"><span data-lx-result-label>resultado correto</span><i><b data-lx-result-bar></b></i><strong data-lx-result-count>aguardando</strong></div>
+        <div class="lx-prob-row"><span>outros estados</span><i><b data-lx-other-bar></b></i><strong data-lx-other-count>aguardando</strong></div>
+      </div>
+      <small>O ruído acima é uma aproximação binomial para exploração visual; não substitui o modelo físico do backend IBM.</small>
+    </section>
+    """
+
+
 def _parallelism_circuit(ux) -> list[dict[str, str]]:
     return [
         ux.screen("Da base para a superposição", _steps([
@@ -162,7 +256,8 @@ def _deutsch_algorithm(ux) -> list[dict[str, str]]:
     ])
     return [
         ux.screen("Modelo de consulta", '<p>A função fica em uma caixa-preta. Não vemos sua implementação; podemos apenas consultar o oráculo Uf. O custo é medido pelo número de consultas.</p><div class="lx-oracle"><span>|x⟩</span><i></i><b>U<sub>f</sub></b><i></i><span>classe</span></div>'),
-        ux.screen("Circuito e estados", _steps([("Preparar π1", "Aplique X no auxiliar e H nos dois qubits."),("Consultar π2", "Uf escreve a informação na fase por phase-kickback."),("Interferir π3", "A última H converte a fase em um bit mensurável.")])),
+        ux.screen("Circuito passo a passo", _circuit_lab("deutsch")),
+        ux.screen("Simule as medidas", _probability_lab("deutsch")),
         ux.screen("Respostas guiadas", questions),
         ux.screen("Por que uma consulta basta", '<div class="lx-takeaway"><strong>Clássico:</strong> consulta f(0) e f(1). <strong>Quântico:</strong> prepara os dois ramos, deixa as fases interferirem e mede somente a propriedade “igual ou diferente”.</div>'),
     ]
@@ -173,7 +268,9 @@ def _dj_overview(ux) -> list[dict[str, str]]:
     authors += _author("Richard Jozsa", "RJ", "Generalizou com Deutsch o problema para n bits, produzindo uma separação exponencial em relação ao algoritmo clássico determinístico.", "University of Cambridge", "1992", "Rapid Solution of Problems by Quantum Computation", "https://www.kings.cam.ac.uk/people/richard-jozsa", JOZSA_IMAGE, "Imagem: King's College, Cambridge.")
     return [
         ux.screen("De um bit para n bits", '<p>Deutsch–Jozsa recebe uma função de n bits para um bit, prometida constante ou balanceada. Balanceada retorna 0 para metade das entradas e 1 para a outra metade.</p><div class="lx-equation">f: {0,1}<sup>n</sup> → {0,1}</div>'),
+        ux.screen("Construa o circuito", _circuit_lab("dj")),
         ux.screen("Regra da saída", '<p>Phase-kickback e interferência concentram a resposta na medida: todos os bits 0 indicam constante; pelo menos um bit 1 indica balanceada.</p>' + _bitstring_lab()),
+        ux.screen("Simule as probabilidades", _probability_lab("dj")),
         ux.screen("Custo de consulta", '<div class="lx-query-compare"><article><b>Clássico determinístico</b><strong>2<sup>n−1</sup> + 1</strong><span>pior caso</span></article><article><b>Quântico</b><strong>1</strong><span>consulta</span></article></div>'),
         ux.screen("Quem criou", '<div class="lx-author-grid">' + authors + '</div>'),
     ]
@@ -204,7 +301,8 @@ def _bernstein_vazirani(ux) -> list[dict[str, str]]:
     questions += _question("Por que o mesmo circuito resolve DJ e BV?", "Analise f(x)=s·x quando s é zero e quando contém algum 1.", "s=00…0 produz sempre zero.", "Se s=00…0, a função é constante. Para qualquer outro s, o produto binário é balanceado. Assim o circuito retorna a própria string e, ao mesmo tempo, sua classe DJ.")
     return [
         ux.screen("O problema da string secreta", '<p>A função recebe x e devolve o produto escalar binário com uma string desconhecida s: f(x)=s·x mod 2. O objetivo é descobrir todos os bits de s.</p>' + _bv_lab()),
-        ux.screen("Cálculo quântico em quatro passos", _steps([("Preparar", "X e H no auxiliar; H nos n qubits de entrada."),("Consultar Uf", "A fase recebe (−1)ᶠ⁽ˣ⁾ por phase-kickback."),("Interferir", "A segunda camada de H cancela todos os estados diferentes de s."),("Medir", "O registrador de entrada está em |s⟩.")])),
+        ux.screen("Cálculo quântico em quatro passos", _circuit_lab("bv")),
+        ux.screen("Simule a recuperação de s", _probability_lab("bv")),
         ux.screen("Quem criou", '<div class="lx-author-grid">' + authors + '</div>'),
         ux.screen("Respostas guiadas", questions),
         ux.screen("Vantagem de consulta", '<div class="lx-query-compare"><article><b>Clássico</b><strong>n</strong><span>consultas</span></article><article><b>Quântico</b><strong>1</strong><span>consulta</span></article></div>'),
@@ -292,7 +390,28 @@ def _style(ux, module_id: str) -> str:
     {root} .lx-bits button[data-on=true]{{background:var(--p);color:white}} {root} .lx-bit-lab,{root} .lx-measure-lab{{display:grid;gap:18px;grid-template-columns:1fr 1fr}}
     {root} .lx-query-compare,{root} .lx-recap{{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}} {root} .lx-query-compare article,{root} .lx-recap article{{background:var(--s2);border:1px solid var(--b);border-radius:11px;display:grid;gap:10px;padding:20px}}
     {root} .lx-query-compare strong,{root} .lx-recap strong{{color:var(--a);font-size:30px}} {root} .lx-shot-lab{{display:flex;flex-wrap:wrap;gap:10px}} {root} #lx-shot-result{{flex-basis:100%;font-size:20px;margin-top:12px}}
-    @media(max-width:760px){{{root} .lx-function-lab,{root} .lx-bit-lab,{root} .lx-author{{grid-template-columns:1fr}} {root} .lx-portrait{{max-width:240px}} {root} .lx-function-grid{{grid-template-columns:1fr}}}}
+    {root} .lx-circuit-lab,{root} .lx-simulator{{background:var(--s2);border:1px solid var(--b);border-radius:14px;padding:clamp(15px,2.2vw,24px)}}
+    {root} .lx-circuit-controls,{root} .lx-sim-controls,{root} .lx-sim-options{{align-items:center;display:flex;flex-wrap:wrap;gap:9px;margin:14px 0}}
+    {root} .lx-circuit-controls button,{root} .lx-sim-controls button,{root} .lx-sim-options button{{background:var(--s);border:1px solid var(--b);border-radius:8px;color:var(--tx);cursor:pointer;font-weight:850;padding:9px 12px}}
+    {root} .lx-circuit-controls button[aria-pressed=true],{root} .lx-sim-options button[aria-pressed=true]{{background:var(--p);border-color:var(--p);color:white}}
+    {root} .lx-circuit-board{{background:var(--s);border:1px solid var(--b);border-radius:11px;padding:13px}}
+    {root} .lx-wire{{align-items:stretch;display:grid;grid-template-columns:minmax(72px,1.2fr) repeat(4,minmax(48px,1fr)) minmax(38px,.7fr);min-width:0}}
+    {root} .lx-wire-name,{root} .lx-wire-end{{align-items:center;display:flex;flex-direction:column;justify-content:center;min-width:0;padding:6px;text-align:center}}
+    {root} .lx-wire-name small{{color:var(--m);font-family:Georgia,serif}} {root} .lx-wire-end{{color:var(--m);font-size:12px}}
+    {root} .lx-node{{align-items:center;display:flex;justify-content:center;min-height:70px;opacity:.22;position:relative;transition:opacity .25s ease,transform .25s ease}}
+    {root} .lx-node:before{{background:var(--b);content:"";height:2px;left:0;position:absolute;right:0;top:50%}}
+    {root} .lx-node[data-on=true]{{opacity:1;transform:translateY(-1px)}}
+    {root} .lx-gate{{align-items:center;background:var(--p);border:2px solid color-mix(in srgb,var(--p),white 22%);border-radius:8px;color:white;display:flex;font-size:clamp(12px,1.5vw,17px);justify-content:center;min-height:44px;min-width:42px;padding:5px;position:relative;text-align:center;z-index:1}}
+    {root} .lx-gate:has(>sub){{background:var(--a)}} {root} .lx-circuit-note{{border-left:4px solid var(--a);font-size:18px;line-height:1.55;margin-top:14px;padding:10px 13px}}
+    {root} .lx-circuit-note span{{display:none}} {root} .lx-circuit-note span[data-on=true]{{display:inline}}
+    {root} .lx-sim-options>span{{font-weight:900}} {root} .lx-sim-controls label{{align-items:center;display:flex;font-weight:850;gap:7px;margin-left:auto}}
+    {root} .lx-sim-controls select{{background:var(--s);border:1px solid var(--b);border-radius:8px;color:var(--tx);padding:8px}}
+    {root} .lx-prob-chart{{display:grid;gap:13px;margin:22px 0 12px}} {root} .lx-prob-row{{align-items:center;display:grid;gap:11px;grid-template-columns:minmax(105px,1fr) minmax(130px,3fr) minmax(76px,.8fr)}}
+    {root} .lx-prob-row>span{{font-weight:850}} {root} .lx-prob-row>i{{background:var(--s);border:1px solid var(--b);border-radius:999px;height:22px;overflow:hidden}}
+    {root} .lx-prob-row>i>b{{background:linear-gradient(90deg,var(--p),var(--a));display:block;height:100%;transition:width .35s ease;width:0}}
+    {root} .lx-prob-row:nth-child(2)>i>b{{background:color-mix(in srgb,var(--m),transparent 35%)}} {root} .lx-prob-row>strong{{font-variant-numeric:tabular-nums;text-align:right}}
+    {root} .lx-simulator>small{{color:var(--m);display:block;line-height:1.5}}
+    @media(max-width:760px){{{root} .lx-function-lab,{root} .lx-bit-lab,{root} .lx-author{{grid-template-columns:1fr}} {root} .lx-portrait{{max-width:240px}} {root} .lx-function-grid{{grid-template-columns:1fr}} {root} .lx-wire{{grid-template-columns:minmax(58px,1fr) repeat(4,minmax(38px,1fr)) 30px}} {root} .lx-wire-name b{{font-size:11px}} {root} .lx-gate{{font-size:11px;min-width:34px;padding:3px}} {root} .lx-prob-row{{grid-template-columns:1fr}} {root} .lx-prob-row>strong{{text-align:left}} {root} .lx-sim-controls label{{margin-left:0}}}}
     </style>
     """
 
@@ -301,15 +420,45 @@ def _script(module_id: str) -> str:
     return f"""
     <script>(()=>{{
       const root=document.getElementById({module_id!r}); if(!root)return;
-      const state={{fn:'00',dj:[0,0,0,0],x:[0,0,0,0],s:[1,0,1,1]}};
+      const state={{fn:'00',dj:[0,0,0,0],djCase:'constant',x:[0,0,0,0],s:[1,0,1,1],circuitStep:0}};
+      const resultLabel=sim=>{{
+        if(sim.dataset.lxSimulator==='deutsch')return `${{state.fn[0]===state.fn[1]?'0 · constante':'1 · balanceada'}}`;
+        if(sim.dataset.lxSimulator==='dj')return state.djCase==='constant'?'0000 · constante':'1010 · balanceada';
+        return `${{state.s.join('')}} · segredo s`;
+      }};
+      const resetSimulator=()=>root.querySelectorAll('[data-lx-simulator]').forEach(sim=>{{
+        sim.querySelector('[data-lx-result-label]').textContent=resultLabel(sim);
+        for(const k of ['result','other']){{sim.querySelector(`[data-lx-${{k}}-bar]`).style.width='0';sim.querySelector(`[data-lx-${{k}}-count]`).textContent='aguardando';}}
+      }});
       const hydrate=()=>{{
         root.querySelectorAll('[data-lx-function]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lxFunction===state.fn));
+        root.querySelectorAll('[data-lx-dj-case]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lxDjCase===state.djCase));
         const name=root.querySelector('#lx-function-name'); if(name){{const i=['00','01','10','11'].indexOf(state.fn)+1;name.textContent=`f${{i}}: ${{state.fn[0]===state.fn[1]?'constante':'balanceada'}}`;root.querySelector('#lx-function-0').textContent=`f(0)=${{state.fn[0]}}`;root.querySelector('#lx-function-1').textContent=`f(1)=${{state.fn[1]}}`;}}
         root.querySelectorAll('[data-lx-dj-bit]').forEach(b=>{{const v=state.dj[+b.dataset.lxDjBit];b.textContent=v;b.dataset.on=v===1}}); const dc=root.querySelector('#lx-dj-class');if(dc){{const bits=state.dj.join('');dc.textContent=`${{bits}} → função ${{bits.includes('1')?'balanceada':'constante'}}`;}}
         for(const kind of ['x','s'])root.querySelectorAll(`[data-lx-bv-${{kind}}]`).forEach(b=>{{const v=state[kind][+b.dataset[`lxBv${{kind.toUpperCase()}}`]];b.textContent=v;b.dataset.on=v===1}});
         const bv=root.querySelector('#lx-bv-result');if(bv){{const products=state.x.map((v,i)=>v*state.s[i]);bv.textContent=`f(x)= ${{products.join(' ⊕ ')}} = ${{products.reduce((a,v)=>a^v,0)}}`;}}
+        root.querySelectorAll('[data-lx-circuit-step]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.lxCircuitStep===state.circuitStep));
+        root.querySelectorAll('[data-lx-stage]').forEach(n=>n.dataset.on=+n.dataset.lxStage<=state.circuitStep+1);
+        root.querySelectorAll('[data-lx-circuit-copy]').forEach(n=>n.dataset.on=+n.dataset.lxCircuitCopy===state.circuitStep);
+        root.querySelectorAll('[data-lx-simulator]').forEach(sim=>sim.querySelector('[data-lx-result-label]').textContent=resultLabel(sim));
       }};
-      root.addEventListener('click',e=>{{const r=e.target.closest('[data-lx-reveal]');if(r){{const q=r.closest('.lx-question');q.querySelector(`[data-lx-panel=${{r.dataset.lxReveal}}]`).hidden=false;return}} const f=e.target.closest('[data-lx-function]');if(f)state.fn=f.dataset.lxFunction; const d=e.target.closest('[data-lx-dj-bit]');if(d)state.dj[+d.dataset.lxDjBit]^=1; for(const k of ['x','s']){{const b=e.target.closest(`[data-lx-bv-${{k}}]`);if(b)state[k][+b.dataset[`lxBv${{k.toUpperCase()}}`]]^=1}} const sh=e.target.closest('[data-lx-shots]');if(sh){{const n=+sh.dataset.lxShots;let z=0;for(let i=0;i<n;i++)z+=Math.random()<.5;root.querySelector('#lx-shot-result').textContent=`${{n}} shot(s): ramo x=0 apareceu ${{z}} vez(es), x=1 apareceu ${{n-z}} vez(es).`;}} hydrate()}});
+      root.addEventListener('click',e=>{{
+        const r=e.target.closest('[data-lx-reveal]');if(r){{const q=r.closest('.lx-question');q.querySelector(`[data-lx-panel=${{r.dataset.lxReveal}}]`).hidden=false;return}}
+        let changed=false;
+        const f=e.target.closest('[data-lx-function]');if(f){{state.fn=f.dataset.lxFunction;changed=true}}
+        const dc=e.target.closest('[data-lx-dj-case]');if(dc){{state.djCase=dc.dataset.lxDjCase;changed=true}}
+        const d=e.target.closest('[data-lx-dj-bit]');if(d)state.dj[+d.dataset.lxDjBit]^=1;
+        for(const k of ['x','s']){{const b=e.target.closest(`[data-lx-bv-${{k}}]`);if(b){{state[k][+b.dataset[`lxBv${{k.toUpperCase()}}`]]^=1;if(k==='s')changed=true}}}}
+        const step=e.target.closest('[data-lx-circuit-step]');if(step)state.circuitStep=+step.dataset.lxCircuitStep;
+        const sh=e.target.closest('[data-lx-shots]');if(sh){{const n=+sh.dataset.lxShots;let z=0;for(let i=0;i<n;i++)z+=Math.random()<.5;root.querySelector('#lx-shot-result').textContent=`${{n}} shot(s): ramo x=0 apareceu ${{z}} vez(es), x=1 apareceu ${{n-z}} vez(es).`;}}
+        const run=e.target.closest('[data-lx-run-sim]');if(run){{
+          const sim=run.closest('[data-lx-simulator]'),n=+run.dataset.lxRunSim,noise=+sim.querySelector('[data-lx-noise]').value;
+          let correct=0;for(let i=0;i<n;i++)if(Math.random()>=noise)correct++;const other=n-correct,pct=100*correct/n;
+          sim.querySelector('[data-lx-result-label]').textContent=resultLabel(sim);sim.querySelector('[data-lx-result-bar]').style.width=`${{pct}}%`;sim.querySelector('[data-lx-other-bar]').style.width=`${{100-pct}}%`;
+          sim.querySelector('[data-lx-result-count]').textContent=`${{correct}} · ${{pct.toFixed(1)}}%`;sim.querySelector('[data-lx-other-count]').textContent=`${{other}} · ${{(100-pct).toFixed(1)}}%`;
+        }}
+        hydrate();if(changed)resetSimulator();
+      }});
       const c=document.getElementById({(module_id + '_content')!r});if(c)new MutationObserver(hydrate).observe(c,{{childList:true}});hydrate();
     }})()</script>
     """

@@ -7,7 +7,7 @@ from notebookux import UX, NotebookUX, __version__, create_theme
 
 def test_public_imports() -> None:
     assert isinstance(UX, NotebookUX)
-    assert __version__ == "0.2.0"
+    assert __version__ == "0.2.1"
     assert create_theme()["primary"] == "#1a73e8"
 
 
