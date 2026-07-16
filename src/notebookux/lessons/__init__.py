@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from html import escape
 
-DAVID_IMAGE = "https://commons.wikimedia.org/wiki/Special:Redirect/file/David%20Deutsch.jpg?width=520"
+DAVID_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/0/04/David_Deutsch.jpg"
 JOZSA_IMAGE = "https://mediadepot.fra1.digitaloceanspaces.com/kingscamapps/s3fs-public/web-images/People/Fellows/richard-jozsa.jpg"
 VAZIRANI_IMAGE = "https://www2.eecs.berkeley.edu/Faculty/Photos/Homepages/vazirani.jpg"
 
