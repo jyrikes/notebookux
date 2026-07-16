@@ -1,9 +1,10 @@
 from .core import UX, NotebookUX, create_theme
 from .lessons import available_algorithm_lessons, render_algorithm_lesson
+from .outputs import render_circuit_output, render_counts_output, render_statevector_output
 from .parallelism import render_parallelism_demo
 from .qiskit_intro import render_qiskit_intro
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "NotebookUX",
@@ -12,6 +13,9 @@ __all__ = [
     "available_algorithm_lessons",
     "create_theme",
     "render_algorithm_lesson",
+    "render_circuit_output",
+    "render_counts_output",
     "render_parallelism_demo",
     "render_qiskit_intro",
+    "render_statevector_output",
 ]
