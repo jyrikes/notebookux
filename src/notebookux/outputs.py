@@ -29,7 +29,15 @@ def render_counts_output(
     confidence = dominant_count / total
     conclusion = _counts_conclusion(algorithm, dominant, expected)
     output_id = f"quantum-counts-{next(_OUTPUT_IDS)}"
-    bars = _count_bars(ordered, total)
+    bars, axis_max = _count_bars(ordered, total)
+    chart = _chart_html(
+        bars,
+        axis_max,
+        title="Distribuição das medições",
+        legend="Frequência observada",
+        y_title="Frequência (%)",
+        x_title="Estados medidos (bitstrings)",
+    )
     expected_copy = _expected_copy(expected, dominant, clean, total)
     body = f"""
     <section id="{output_id}" class="qo-root">
@@ -40,7 +48,7 @@ def render_counts_output(
         <article><small>estado dominante</small><b>{escape(dominant)}</b></article>
         <article><small>frequência</small><b>{confidence:.1%}</b></article>
       </div>
-      <div class="qo-bars">{bars}</div>
+      {chart}
       <div class="qo-steps">
         <article><b>01</b><div><strong>Conte as execuções</strong><p>As contagens somam {total:,} shots. Cada shot termina em uma bitstring medida.</p></div></article>
         <article><b>02</b><div><strong>Localize o pico</strong><p>O resultado {escape(dominant)} apareceu {dominant_count:,} vezes e concentra {confidence:.1%} da amostra.</p></div></article>
@@ -116,9 +124,18 @@ def render_statevector_output(
     output_id = f"quantum-state-{next(_OUTPUT_IDS)}"
     num_qubits = int(getattr(statevector, "num_qubits", round(math.log2(len(statevector)))))
     dominant, probability = nonzero[0]
+    axis_max = _nice_axis_max(max(value for _, value in nonzero) * 100)
     bars = "".join(
-        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="height:{value * 100:.4f}%"></b></i><strong>{value:.2%}</strong></div>'
+        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="height:{value * 10000 / axis_max:.4f}%"></b></i><strong>{value:.2%}</strong><em>p = {value:.3f}</em></div>'
         for key, value in nonzero[:8]
+    )
+    chart = _chart_html(
+        bars,
+        axis_max,
+        title="Probabilidades na base computacional",
+        legend="Probabilidade teórica",
+        y_title="Probabilidade (%)",
+        x_title="Estados da base",
     )
     body = f"""
     <section id="{output_id}" class="qo-root">
@@ -130,7 +147,7 @@ def render_statevector_output(
         <article><small>estados não nulos</small><b>{len(nonzero)}</b></article>
         <article><small>maior probabilidade</small><b>{probability:.1%}</b></article>
       </div>
-      <div class="qo-bars">{bars}</div>
+      {chart}
       <div class="qo-steps">
         <article><b>01</b><div><strong>Identifique a base</strong><p>Com {num_qubits} qubits existem {2 ** num_qubits} estados computacionais possíveis.</p></div></article>
         <article><b>02</b><div><strong>Observe amplitudes não nulas</strong><p>{len(nonzero)} estados possuem probabilidade maior que o limite numérico.</p></div></article>
@@ -166,12 +183,39 @@ def _expected_copy(expected: str | None, dominant: str, counts: Mapping[str, int
     return f"Esperávamos {expected}, mas o pico foi {dominant}. Verifique ordem dos bits, circuito, transpilações e ruído."
 
 
-def _count_bars(ordered: Sequence[tuple[str, int]], total: int) -> str:
-    maximum = max(value for _, value in ordered)
-    return "".join(
-        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="height:{value / maximum * 100:.4f}%"></b></i><strong>{value / total:.1%}</strong></div>'
+def _count_bars(ordered: Sequence[tuple[str, int]], total: int) -> tuple[str, float]:
+    axis_max = _nice_axis_max(max(value / total for _, value in ordered) * 100)
+    bars = "".join(
+        f'<div class="qo-bar"><span>{escape(key)}</span><i><b style="height:{value / total * 10000 / axis_max:.4f}%"></b></i><strong>{value / total:.1%}</strong><em>{value:,} shots</em></div>'
         for key, value in ordered[:10]
     )
+    return bars, axis_max
+
+
+def _nice_axis_max(maximum: float) -> float:
+    for candidate in (10, 20, 25, 30, 40, 50, 60, 75, 100):
+        if maximum <= candidate:
+            return float(candidate)
+    return 100.0
+
+
+def _chart_html(bars: str, axis_max: float, *, title: str, legend: str, y_title: str, x_title: str) -> str:
+    ticks = "".join(f"<span>{value:g}</span>" for value in (axis_max, axis_max * 0.75, axis_max * 0.5, axis_max * 0.25, 0))
+    return f"""
+    <section class="qo-chart" aria-label="{escape(title)}">
+      <div class="qo-chart-head">
+        <div><small>Gráfico de distribuição</small><strong>{escape(title)}</strong></div>
+        <div class="qo-legend"><i></i><span>{escape(legend)}</span></div>
+      </div>
+      <div class="qo-plot">
+        <div class="qo-y-title">{escape(y_title)}</div>
+        <div class="qo-y-axis"><div class="qo-y-scale">{ticks}</div></div>
+        <div class="qo-bars" style="--qo-axis-max:{axis_max:g}">{bars}</div>
+      </div>
+      <div class="qo-x-title">{escape(x_title)}</div>
+      <div class="qo-chart-help"><span><b>Altura</b> = percentual na escala do eixo Y</span><span><b>Rótulo</b> = resultado medido</span><span><b>Detalhe</b> = quantidade de shots</span></div>
+    </section>
+    """
 
 
 def _call_int(value: Any, method: str) -> int:
@@ -210,11 +254,14 @@ def _style(ux, output_id: str) -> str:
     {root}{{--p:{t['primary']};--a:{t['accent']};--s:{t['surface']};--s2:{t['surface_2']};--b:{t['border']};--tx:{t['text']};--m:{t['muted']};background:var(--s);border:1px solid var(--b);border-radius:12px;color:var(--tx);font-family:{t['font']};margin:12px 0;overflow:hidden;padding:clamp(17px,2.4vw,25px)}}
     {root} *{{box-sizing:border-box}} {root} header{{align-items:start;display:flex;gap:15px;justify-content:space-between}} {root} header small{{color:var(--p);font-size:11px;font-weight:950;letter-spacing:.12em;text-transform:uppercase}} {root} h3{{font-size:clamp(23px,2.5vw,30px);line-height:1.15;margin:5px 0 0}} {root} header>span{{background:var(--s2);border:1px solid var(--b);border-radius:999px;color:var(--a);font-size:12px;font-weight:900;padding:7px 10px}}
     {root} .qo-context{{color:var(--m);font-size:17px;line-height:1.6;margin:15px 0}} {root} .qo-metrics{{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));margin:18px 0}} {root} .qo-metrics article{{background:var(--s2);border:1px solid var(--b);border-radius:9px;display:grid;gap:5px;padding:13px}} {root} .qo-metrics small{{color:var(--m);font-size:11px;font-weight:900;text-transform:uppercase}} {root} .qo-metrics b{{font-size:23px;overflow-wrap:anywhere}}
-    {root} .qo-bars{{align-items:end;background:color-mix(in srgb,var(--p) 5%,var(--s2));border:1px solid var(--b);border-radius:11px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));margin:20px 0;padding:18px 16px 14px}} {root} .qo-bar{{align-items:end;display:grid;gap:7px;grid-template-areas:"value" "track" "label";grid-template-rows:24px 180px minmax(22px,auto);justify-items:center;min-width:0}} {root} .qo-bar>span{{font-family:Georgia,serif;font-size:13px;font-weight:900;grid-area:label;max-width:100%;overflow-wrap:anywhere;text-align:center}} {root} .qo-bar>i{{align-items:flex-end;align-self:end;background:var(--s);border:1px solid var(--b);border-radius:8px 8px 3px 3px;display:flex;grid-area:track;height:180px;overflow:hidden;width:min(44px,100%)}} {root} .qo-bar>i>b{{background:linear-gradient(0deg,var(--p),var(--a));display:block;min-height:2px;transition:height .3s;width:100%}} {root} .qo-bar>strong{{align-self:end;font-size:13px;font-variant-numeric:tabular-nums;grid-area:value;text-align:center}}
+    {root} .qo-chart{{background:color-mix(in srgb,var(--p) 5%,var(--s2));border:1px solid var(--b);border-radius:11px;margin:20px 0;padding:17px}} {root} .qo-chart-head{{align-items:center;display:flex;gap:15px;justify-content:space-between;margin-bottom:14px}} {root} .qo-chart-head>div:first-child{{display:grid;gap:4px}} {root} .qo-chart-head small{{color:var(--p);font-size:10px;font-weight:950;letter-spacing:.1em;text-transform:uppercase}} {root} .qo-chart-head strong{{font-size:18px}} {root} .qo-legend{{align-items:center;background:var(--s);border:1px solid var(--b);border-radius:999px;display:flex;font-size:12px;font-weight:800;gap:7px;padding:7px 10px}} {root} .qo-legend i{{background:linear-gradient(0deg,var(--p),var(--a));border-radius:3px;display:block;height:14px;width:14px}}
+    {root} .qo-plot{{display:grid;grid-template-columns:24px 34px minmax(0,1fr)}} {root} .qo-y-title{{align-self:center;font-size:11px;font-weight:900;justify-self:center;transform:rotate(180deg);writing-mode:vertical-rl}} {root} .qo-y-axis{{display:grid;grid-template-rows:31px 180px minmax(47px,auto)}} {root} .qo-y-scale{{color:var(--m);display:flex;font-size:10px;font-variant-numeric:tabular-nums;grid-row:2;justify-content:space-between;padding-right:6px;transform:translateY(-5px);flex-direction:column;text-align:right}}
+    {root} .qo-bars{{align-items:end;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));position:relative}} {root} .qo-bars:before{{background:repeating-linear-gradient(to bottom,var(--b) 0 1px,transparent 1px 45px);content:"";height:181px;left:0;opacity:.7;pointer-events:none;position:absolute;right:0;top:31px}} {root} .qo-bar{{align-items:end;display:grid;gap:7px;grid-template-areas:"value" "track" "label" "detail";grid-template-rows:24px 180px minmax(22px,auto) 18px;justify-items:center;min-width:0;position:relative;z-index:1}} {root} .qo-bar>span{{font-family:Georgia,serif;font-size:13px;font-weight:900;grid-area:label;max-width:100%;overflow-wrap:anywhere;text-align:center}} {root} .qo-bar>i{{align-items:flex-end;align-self:end;background:color-mix(in srgb,var(--s) 90%,transparent);border:1px solid var(--b);border-radius:8px 8px 3px 3px;display:flex;grid-area:track;height:180px;overflow:hidden;width:min(44px,100%)}} {root} .qo-bar>i>b{{background:linear-gradient(0deg,var(--p),var(--a));display:block;min-height:2px;transition:height .3s;width:100%}} {root} .qo-bar>strong{{align-self:end;font-size:13px;font-variant-numeric:tabular-nums;grid-area:value;text-align:center}} {root} .qo-bar>em{{color:var(--m);font-size:10px;font-style:normal;font-variant-numeric:tabular-nums;grid-area:detail;text-align:center}}
+    {root} .qo-x-title{{font-size:11px;font-weight:900;margin:7px 0 0 58px;text-align:center}} {root} .qo-chart-help{{border-top:1px solid var(--b);color:var(--m);display:flex;flex-wrap:wrap;font-size:11px;gap:8px 18px;margin-top:13px;padding-top:11px}} {root} .qo-chart-help b{{color:var(--tx)}}
     {root} .qo-steps,{root} .qo-reading{{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-top:19px}} {root} .qo-steps article,{root} .qo-reading article{{align-items:start;background:var(--s2);border:1px solid var(--b);border-radius:9px;display:grid;gap:11px;grid-template-columns:34px 1fr;padding:13px}} {root} .qo-steps article>b,{root} .qo-reading article>b{{align-items:center;background:var(--p);border-radius:50%;color:white;display:flex;font-size:11px;height:30px;justify-content:center}} {root} .qo-steps strong{{font-size:16px}} {root} .qo-steps p,{root} .qo-reading p{{color:var(--m);font-size:14px;line-height:1.5;margin:5px 0 0}}
     {root} .qo-note{{background:var(--s2);border-left:4px solid var(--a);border-radius:0 8px 8px 0;font-size:14px;line-height:1.5;margin-top:14px;padding:11px 13px}} {root} .qo-operations{{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}} {root} .qo-operations span{{background:var(--s2);border:1px solid var(--b);border-radius:999px;font-size:13px;padding:7px 10px}} {root} .qo-operations b{{color:var(--p)}}
     {root} .qo-circuit-visual{{background:linear-gradient(145deg,color-mix(in srgb,var(--p) 12%,var(--s2)),var(--s2));border:1px solid var(--b);border-radius:11px;margin:18px 0;overflow:auto;padding:14px}} {root} .qo-circuit-visual svg{{background:white;border-radius:7px;display:block;height:auto;margin:auto;max-width:100%;min-width:520px}}
-    @media(max-width:680px){{{root} header{{display:grid}} {root} header>span{{justify-self:start}} {root} .qo-steps,{root} .qo-reading{{grid-template-columns:1fr}} {root} .qo-bars{{gap:9px;grid-template-columns:repeat(auto-fit,minmax(58px,1fr));padding-inline:10px}} {root} .qo-circuit-visual svg{{min-width:460px}}}}
+    @media(max-width:680px){{{root} header,{root} .qo-chart-head{{display:grid}} {root} header>span,{root} .qo-legend{{justify-self:start}} {root} .qo-steps,{root} .qo-reading{{grid-template-columns:1fr}} {root} .qo-chart{{padding-inline:10px}} {root} .qo-plot{{grid-template-columns:19px 28px minmax(0,1fr)}} {root} .qo-bars{{gap:8px;grid-template-columns:repeat(auto-fit,minmax(46px,1fr))}} {root} .qo-x-title{{margin-left:47px}} {root} .qo-circuit-visual svg{{min-width:460px}}}}
     </style>
     """
 

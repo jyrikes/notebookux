@@ -58,8 +58,11 @@ def test_counts_output_explains_algorithms(algorithm: str, expected_copy: str) -
     assert expected_copy in ux.html
     assert "01" in ux.html and "04" in ux.html
     assert "90.0%" in ux.html
-    assert "height:100.0000%" in ux.html
-    assert 'grid-template-areas:"value" "track" "label"' in ux.html
+    assert "height:90.0000%" in ux.html
+    assert 'grid-template-areas:"value" "track" "label" "detail"' in ux.html
+    assert "repeat(auto-fit,minmax(46px,1fr))" in ux.html
+    assert "Frequência observada" in ux.html
+    assert "Estados medidos (bitstrings)" in ux.html
     assert "<table" not in ux.html
 
 
