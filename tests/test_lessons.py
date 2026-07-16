@@ -33,6 +33,7 @@ def test_all_algorithm_lessons_render_as_modules() -> None:
         assert "\\frac" not in ux.html
         assert "<table" not in ux.html.lower()
         assert "data:image" not in ux.html.lower()
+        assert "min-height:480px" not in ux.html
 
 
 def test_guided_questions_and_portrait_fallbacks_are_present() -> None:

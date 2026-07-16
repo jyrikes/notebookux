@@ -364,8 +364,8 @@ def _style(ux, module_id: str) -> str:
     return f"""
     <style>
     {root} {{--p:{t['primary']};--a:{t['accent']};--s:{t['surface']};--s2:{t['surface_2']};--b:{t['border']};--tx:{t['text']};--m:{t['muted']};overflow:hidden}}
-    {root} *{{box-sizing:border-box}} {root}_content{{min-height:480px;padding:clamp(22px,3vw,34px)!important}}
-    {root}_content>div:first-child{{font-size:clamp(27px,3vw,34px)!important;margin-bottom:22px!important}}
+    {root} *{{box-sizing:border-box}} {root}_content{{min-height:0;padding:clamp(18px,2.4vw,28px)!important}}
+    {root}_content>div:first-child{{font-size:clamp(27px,3vw,34px)!important;margin-bottom:16px!important}}
     {root} p{{font-size:clamp(18px,1.6vw,21px);line-height:1.72;margin:0 0 16px}} {root} h3{{font-size:21px;margin:4px 0 10px}}
     {root} button{{font:inherit}} {root} .lx-kicker{{color:var(--p);font-size:12px;font-weight:950;letter-spacing:.12em;text-transform:uppercase}}
     {root} .lx-math,{root} .lx-equation{{background:var(--s2);border:1px solid var(--b);border-radius:8px;font-family:Georgia,serif;font-weight:750;padding:3px 8px}}

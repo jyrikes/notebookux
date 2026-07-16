@@ -151,7 +151,7 @@ def render_parallelism_demo(ux) -> None:
     }}
     #paralelismo-lite * {{ box-sizing:border-box; }}
     #paralelismo-lite > div:nth-child(2) {{ font-size:clamp(32px,4vw,44px) !important; }}
-    #paralelismo-lite_content {{ min-height:560px; padding:clamp(22px,3vw,34px) !important; }}
+    #paralelismo-lite_content {{ min-height:0; padding:clamp(18px,2.4vw,28px) !important; }}
     #paralelismo-lite_content > div:first-child {{ font-size:clamp(27px,3vw,34px) !important; margin-bottom:22px !important; }}
     #paralelismo-lite_content p {{ color:var(--pl-text); font-size:clamp(18px,1.65vw,21px); line-height:1.76; margin:0; }}
     #paralelismo-lite_prev,
