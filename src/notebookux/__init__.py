@@ -1,3 +1,4 @@
+from .code_guide import render_code_guide
 from .core import UX, NotebookUX, create_theme
 from .lessons import available_algorithm_lessons, render_algorithm_lesson
 from .outputs import render_circuit_output, render_counts_output, render_statevector_output
@@ -5,7 +6,7 @@ from .parallelism import render_parallelism_demo
 from .qiskit_intro import render_qiskit_intro
 from .quantum_cq_intro import render_quantum_cq_intro
 
-__version__ = "0.5.3"
+__version__ = "0.5.4"
 
 __all__ = [
     "NotebookUX",
@@ -13,6 +14,7 @@ __all__ = [
     "__version__",
     "available_algorithm_lessons",
     "create_theme",
+    "render_code_guide",
     "render_algorithm_lesson",
     "render_circuit_output",
     "render_counts_output",
