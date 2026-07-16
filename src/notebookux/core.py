@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from html import escape
 from typing import Any
 
+import markdown as markdown_lib
 from IPython.display import HTML, display
 
 Screen = dict[str, str]
@@ -863,6 +864,134 @@ class NotebookUX:
     def figure(self, fig: Any, title: str = "Grafico", subtitle: str = "", dpi: int = 130) -> None:
         self.wrap(self.figure_html(fig, title=title, subtitle=subtitle, dpi=dpi))
 
+    def markdown_html(
+        self,
+        text: str,
+        *,
+        image_url: str = "",
+        image_caption: str = "",
+        image_alt: str = "",
+    ) -> str:
+        """Render Markdown as notebook-ready HTML with optional contextual media."""
+        rendered = markdown_lib.markdown(
+            str(text),
+            extensions=["extra", "sane_lists"],
+            output_format="html",
+        )
+        has_image = bool(str(image_url).strip())
+        media = ""
+        if has_image:
+            media = f"""
+            <figure class="nbux-markdown-media">
+                <img
+                    src="{_esc(image_url)}"
+                    alt="{_esc(image_alt or image_caption)}"
+                    loading="lazy"
+                />
+                <figcaption>{_esc(image_caption)}</figcaption>
+            </figure>
+            """
+
+        body_class = "nbux-markdown-layout has-media" if has_image else "nbux-markdown-layout"
+        t = self.theme
+        return f"""
+        <style>
+            .nbux-markdown-layout {{
+                color:{t['text']};
+                font-size:{t['fs_body']};
+                line-height:{t['line_body']};
+                min-width:0;
+            }}
+            .nbux-markdown-layout.has-media {{
+                display:grid;
+                grid-template-columns:minmax(0, 1fr) minmax(220px, 38%);
+                gap:22px;
+                align-items:start;
+            }}
+            .nbux-markdown-prose {{min-width:0;overflow-wrap:anywhere;}}
+            .nbux-markdown-prose h1,
+            .nbux-markdown-prose h2,
+            .nbux-markdown-prose h3,
+            .nbux-markdown-prose h4 {{
+                color:{t['primary']};
+                line-height:1.2;
+                margin:1.1em 0 .45em;
+                letter-spacing:0;
+            }}
+            .nbux-markdown-prose h1:first-child,
+            .nbux-markdown-prose h2:first-child,
+            .nbux-markdown-prose h3:first-child {{margin-top:0;}}
+            .nbux-markdown-prose a {{color:{t['primary']};font-weight:750;}}
+            .nbux-markdown-prose img {{max-width:100%;height:auto;}}
+            .nbux-markdown-prose table {{
+                width:100%;
+                border-collapse:collapse;
+                margin:14px 0;
+                display:block;
+                overflow-x:auto;
+            }}
+            .nbux-markdown-prose th,
+            .nbux-markdown-prose td {{
+                border:1px solid {t['border']};
+                padding:9px 11px;
+                text-align:left;
+                white-space:nowrap;
+            }}
+            .nbux-markdown-prose th {{background:{t['surface_2']};color:{t['primary']};}}
+            .nbux-markdown-prose details {{
+                border:1px solid {t['border']};
+                border-radius:{t['radius']};
+                padding:12px 14px;
+                margin:12px 0;
+                background:{t['surface']};
+            }}
+            .nbux-markdown-prose summary {{cursor:pointer;font-weight:850;color:{t['primary']};}}
+            .nbux-markdown-media {{margin:0;min-width:0;}}
+            .nbux-markdown-media img {{
+                display:block;
+                width:100%;
+                max-height:440px;
+                object-fit:cover;
+                border:1px solid {t['border']};
+                border-radius:{t['radius']};
+                background:{t['surface_2']};
+            }}
+            .nbux-markdown-media figcaption {{
+                color:{t['muted']};
+                font-size:{t['fs_small']};
+                line-height:1.45;
+                margin-top:8px;
+            }}
+            @media (max-width:760px) {{
+                .nbux-markdown-layout.has-media {{grid-template-columns:minmax(0, 1fr);}}
+                .nbux-markdown-media {{max-width:520px;}}
+            }}
+        </style>
+        <div class="{body_class}">
+            <div class="nbux-markdown-prose">{rendered}</div>
+            {media}
+        </div>
+        """
+
+    def markdown_screen(
+        self,
+        title: str,
+        text: str,
+        *,
+        image_url: str = "",
+        image_caption: str = "",
+        image_alt: str = "",
+    ) -> Screen:
+        return self.screen(
+            title,
+            self.markdown_html(
+                text,
+                image_url=image_url,
+                image_caption=image_caption,
+                image_alt=image_alt,
+            ),
+        )
+
     def screen(self, title: str, html: str) -> Screen:
         return {"title": str(title), "html": str(html)}
 
@@ -934,6 +1063,11 @@ class NotebookUX:
                 next.disabled = index === screens.length - 1;
                 prev.style.opacity = prev.disabled ? ".55" : "1";
                 next.style.opacity = next.disabled ? ".55" : "1";
+                if (window.MathJax?.typesetPromise) {{
+                    window.MathJax.typesetPromise([content]);
+                }} else if (window.MathJax?.Hub?.Queue) {{
+                    window.MathJax.Hub.Queue(["Typeset", window.MathJax.Hub, content]);
+                }}
             }}
 
             prev.addEventListener("click", () => {{

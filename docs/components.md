@@ -94,3 +94,23 @@ CQ.module("Modulo de estudo", screens)
 ```
 
 `module_html` exige ao menos uma tela e levanta `ValueError` quando recebe uma lista vazia.
+
+### Markdown e imagens em modulos
+
+Use `markdown_screen` quando o conteudo de uma tela ja existe em Markdown. O
+metodo preserva tabelas, blocos `details` e marcadores de matematica para o
+MathJax do notebook, alem de aceitar uma imagem contextual com legenda.
+
+```python
+screen = CQ.markdown_screen(
+    "Contexto historico",
+    "## Deutsch\n\nO estado final e $|0\\rangle$ ou $|1\\rangle$.",
+    image_url="https://example.com/deutsch.jpg",
+    image_caption="David Deutsch em uma conferencia.",
+)
+
+CQ.module("Historia do algoritmo", [screen])
+```
+
+`markdown_html` retorna apenas o HTML e pode ser combinado com outros
+componentes antes de criar a tela.

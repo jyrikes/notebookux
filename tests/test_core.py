@@ -7,7 +7,7 @@ from notebookux import UX, NotebookUX, __version__, create_theme
 
 def test_public_imports() -> None:
     assert isinstance(UX, NotebookUX)
-    assert __version__ == "0.1.0"
+    assert __version__ == "0.1.2"
     assert create_theme()["primary"] == "#1a73e8"
 
 
@@ -243,6 +243,32 @@ def test_screen_returns_title_and_html_strings() -> None:
     assert "A" in screen["html"]
 
 
+def test_markdown_html_renders_tables_details_math_and_media() -> None:
+    ux = NotebookUX()
+
+    html = ux.markdown_html(
+        "## Titulo\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n<details><summary>Resposta</summary>$|0\\rangle$</details>",
+        image_url="https://example.com/photo.png?x=1&y=2",
+        image_caption="Foto <historica>",
+    )
+
+    assert "<table>" in html
+    assert "<details>" in html
+    assert "$|0\\rangle$" in html
+    assert "https://example.com/photo.png?x=1&amp;y=2" in html
+    assert "Foto &lt;historica&gt;" in html
+    assert "nbux-markdown-layout has-media" in html
+
+
+def test_markdown_screen_returns_rendered_screen() -> None:
+    ux = NotebookUX()
+
+    screen = ux.markdown_screen("Historia", "**Texto original**")
+
+    assert screen["title"] == "Historia"
+    assert "<strong>Texto original</strong>" in screen["html"]
+
+
 def test_module_html_renders_one_screen_and_sanitizes_id() -> None:
     ux = NotebookUX()
 
@@ -268,6 +294,7 @@ def test_module_html_renders_multiple_screens() -> None:
     assert "First" in html
     assert "Second" in html
     assert "Avancar" in html
+    assert "typesetPromise" in html
 
 
 def test_module_html_rejects_empty_screens() -> None:
