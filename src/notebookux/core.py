@@ -1033,7 +1033,7 @@ class NotebookUX:
                     &larr; Voltar
                 </button>
                 <button id="{safe_module_id}_next" style="border:1px solid {t['primary']};background:{t['primary']};color:white;border-radius:999px;padding:10px 18px;font-weight:900;cursor:pointer;font-size:{t['fs_body']};">
-                    Avancar &rarr;
+                    Avan&ccedil;ar &rarr;
                 </button>
             </div>
         </div>

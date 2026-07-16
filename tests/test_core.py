@@ -293,7 +293,7 @@ def test_module_html_renders_multiple_screens() -> None:
 
     assert "First" in html
     assert "Second" in html
-    assert "Avancar" in html
+    assert "Avan&ccedil;ar" in html
     assert "typesetPromise" in html
 
 
