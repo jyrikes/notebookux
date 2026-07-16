@@ -59,6 +59,7 @@ def test_counts_output_explains_algorithms(algorithm: str, expected_copy: str) -
     assert "01" in ux.html and "04" in ux.html
     assert "90.0%" in ux.html
     assert "height:100.0000%" in ux.html
+    assert 'grid-template-areas:"value" "track" "label"' in ux.html
     assert "<table" not in ux.html
 
 

@@ -4,7 +4,7 @@ from .outputs import render_circuit_output, render_counts_output, render_stateve
 from .parallelism import render_parallelism_demo
 from .qiskit_intro import render_qiskit_intro
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 __all__ = [
     "NotebookUX",
